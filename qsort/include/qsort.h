@@ -13,8 +13,5 @@ public:
 	// Recursively sort the subarray using threads
 	static void ThreadedQuickSort(std::vector<double>& values, int startIndex, int endIndex);
 
-	std::string_view CheckSorting(const std::vector<double>& values) const;
-
-private:
-
+	static std::string_view CheckSorting(const std::vector<double>& values);
 };

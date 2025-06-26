@@ -12,7 +12,6 @@ void QSort::QuickSort(std::vector<double>& values, int startIndex, int endIndex)
 	if (startIndex < endIndex)
 	{
 		auto pivotIndex = Partition(values, startIndex, endIndex);
-
 		// Recursively sort the part before the partition index
 		QuickSort(values, startIndex, pivotIndex);
 		// Recursively sort the part after the partition index
@@ -22,7 +21,7 @@ void QSort::QuickSort(std::vector<double>& values, int startIndex, int endIndex)
 
 int QSort::Partition(std::vector<double>& values, int startIndex, int endIndex)
 {
-	auto pivotElement = values[startIndex];
+	auto pivotElement = values[(startIndex + endIndex) / 2];//values[startIndex];
 	auto i = startIndex - 1;
 	auto j = endIndex + 1;
 
@@ -42,39 +41,7 @@ int QSort::Partition(std::vector<double>& values, int startIndex, int endIndex)
 	}
 }
 
-void QSort::ThreadedQuickSort(std::vector<double>& values, int startIndex, int endIndex)
-{
-	if (startIndex < endIndex)
-	{
-		auto partitioningIndex = Partition(values, startIndex, endIndex);
-
-		std::thread leftThread;
-		std::thread rightThread;
-
-		if (endIndex - startIndex > limit)
-		{
-			leftThread = std::thread(&QSort::ThreadedQuickSort, ref(values), startIndex, partitioningIndex);
-			rightThread = std::thread(&QSort::ThreadedQuickSort, ref(values), partitioningIndex + 1, endIndex);
-		}
-		else
-		{
-			QuickSort(values, startIndex, partitioningIndex);
-			QuickSort(values, partitioningIndex + 1, endIndex);
-		}
-
-		if (leftThread.joinable())
-		{
-			leftThread.join();
-		}
-
-		if (rightThread.joinable())
-		{
-			rightThread.join();
-		}
-	}
-}
-
-std::string_view QSort::CheckSorting(const std::vector<double>& values) const
+std::string_view QSort::CheckSorting(const std::vector<double>& values)
 {
 	if (std::is_sorted(values.begin(), values.end()))
 	{
@@ -89,3 +56,58 @@ std::string_view QSort::CheckSorting(const std::vector<double>& values) const
 		return "The array is not sorted";
 	}
 }
+
+void QSort::ThreadedQuickSort(std::vector<double>& values, int startIndex, int endIndex)
+{
+	if (startIndex >= endIndex)
+	{
+		return;
+	}
+	static const unsigned maxThreads = std::thread::hardware_concurrency();
+	static std::atomic<unsigned> activeThreads{ 1 };
+	auto partitioningIndex = Partition(values, startIndex, endIndex);
+
+	std::thread leftPartThread;
+	std::thread rightPartThread;
+
+	if (endIndex - startIndex > limit)
+	{
+		if (activeThreads.load() < maxThreads)
+		{
+			activeThreads.fetch_add(1);
+
+			leftPartThread = std::thread([&] {
+				ThreadedQuickSort(values, startIndex, partitioningIndex);
+				activeThreads.fetch_sub(1);
+				});
+		}
+		if (activeThreads.load() < maxThreads)
+		{
+			activeThreads.fetch_add(1);
+
+			rightPartThread = std::thread([&] {
+				ThreadedQuickSort(values, partitioningIndex + 1, endIndex);
+				activeThreads.fetch_sub(1);
+				});
+		}
+	}
+	if (leftPartThread.joinable())
+	{
+		leftPartThread.join();
+	}
+	else
+	{
+		QuickSort(values, startIndex, partitioningIndex);
+	}
+
+	if (rightPartThread.joinable())
+	{
+		rightPartThread.join();
+	}
+	else
+	{
+		QuickSort(values, partitioningIndex + 1, endIndex);
+	}
+}
+
+
